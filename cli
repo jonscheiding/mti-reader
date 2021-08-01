@@ -1,0 +1,6 @@
+#!/bin/bash
+':' //; exec "$(command -v nodejs || command -v node)" "$0" "$@"
+
+require('@babel/register');
+require('regenerator-runtime/runtime');
+require('./cli.js');

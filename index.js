@@ -2,8 +2,6 @@ import axios from 'axios';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
 
-const SESSION_VARS = process.env.SESSION_VARS;
-
 /**
  * @typedef {object} Page
  * @property {number} PageNum
@@ -34,21 +32,29 @@ const SESSION_VARS = process.env.SESSION_VARS;
  */
 
 /**
- * @param {string} sessionInfo
+ * @param {string} sessionVars
+ * @param {number} maxPages
  * @return {DownloadedPage[]}
  */
-async function loadPages(sessionInfo) {
+async function loadPages(sessionVars, maxPages) {
   const pageDataResponse = await axios.post(
-      'http://ep.mylines.com/BrowseScript.aspx/LoadPageData',
-      {
-        sessionVars: SESSION_VARS,
-        numPagesToLoad: 1,
-      });
+    'http://ep.mylines.com/BrowseScript.aspx/LoadPageData',
+    {
+      sessionVars,
+      numPagesToLoad: 1,
+    });
 
   /** @type {PageData} */
   const pageData = pageDataResponse.data.d;
 
-  const pageCount = Math.min(pageData.Scripts[0].PageCount, 10);
+  let pageCount = Math.min(pageData.Scripts[0].PageCount);
+
+  if (maxPages) {
+    console.log(`Found ${pageCount} pages, limiting to ${maxPages}.`);
+    pageCount = Math.min(pageCount, maxPages);
+  } else {
+    console.log(`Found ${pageCount} pages.`);
+  }
 
   /** @type {DownloadedPage[]} */
   const pages = [];
@@ -57,11 +63,11 @@ async function loadPages(sessionInfo) {
     console.log(`Downloading page ${i} of ${pageCount}`);
 
     const singlePageResponse = await axios.post(
-        'http://ep.mylines.com/BrowseScript.aspx/LoadSinglePage',
-        {
-          sessionVars: SESSION_VARS,
-          pageNum: i,
-        });
+      'http://ep.mylines.com/BrowseScript.aspx/LoadSinglePage',
+      {
+        sessionVars,
+        pageNum: i,
+      });
 
     /** @type {SinglePage} */
     const singlePage = singlePageResponse.data.d;
@@ -78,11 +84,12 @@ async function loadPages(sessionInfo) {
 }
 
 /**
+ * @param {string} outputFile
  * @param {DownloadedPage[]} pages
  */
-async function generatePdf(pages) {
+async function generatePdf(outputFile, pages) {
   const pdf = new PDFDocument({autoFirstPage: false});
-  pdf.pipe(fs.createWriteStream('./temp/result.pdf'));
+  pdf.pipe(fs.createWriteStream(outputFile));
 
   pages = pages.sort((a, b) => a.number - b.number);
 
@@ -96,4 +103,12 @@ async function generatePdf(pages) {
   pdf.end();
 }
 
-loadPages().then(generatePdf).catch(console.error);
+/**
+ * @param {string} sessionVars
+ * @param {string} outputFile
+ * @param {number} maxPages
+ */
+export default async function index(sessionVars, outputFile, maxPages) {
+  const pages = await loadPages(sessionVars, maxPages);
+  await generatePdf(outputFile, pages);
+}

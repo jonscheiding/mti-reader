@@ -5,8 +5,7 @@
   "author": "Jon Scheiding <jonscheiding@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint .",
-    "start": "babel-node index"
+    "lint": "eslint ."
   },
   "devDependencies": {
     "eslint": "^7.32.0",
@@ -16,7 +15,10 @@
     "@babel/core": "^7.14.8",
     "@babel/node": "^7.14.9",
     "@babel/preset-env": "^7.14.9",
+    "@babel/register": "^7.14.5",
     "axios": "^0.21.1",
-    "pdfkit": "^0.12.1"
+    "pdfkit": "^0.12.1",
+    "regenerator-runtime": "^0.13.9",
+    "yargs": "^17.0.1"
   }
 }
