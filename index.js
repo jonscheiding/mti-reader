@@ -10,8 +10,8 @@ import PDFDocument from 'pdfkit';
 
 /**
  * @typedef {object} Script
- * @property {number} Id
- * @property {Number} PageCount
+ * @property {number} PageCount
+ * @property {string} ProductionName
  */
 
 /**
@@ -32,6 +32,19 @@ import PDFDocument from 'pdfkit';
  */
 
 /**
+ * @param {number} current
+ * @param {number} total
+ */
+function writeProgress(current, total) {
+  process.stdout.write('.');
+  if (current % 50 === 0 || current === total) {
+    process.stdout.write(` (${
+      Math.floor(current * 100 / total)
+    }%)\n`);
+  }
+}
+
+/**
  * @param {string} sessionVars
  * @param {number} maxPages
  * @return {DownloadedPage[]}
@@ -49,19 +62,19 @@ async function loadPages(sessionVars, maxPages) {
 
   let pageCount = Math.min(pageData.Scripts[0].PageCount);
 
+  console.log(`Getting script for '${pageData.Scripts[0].ProductionName}'.`);
+
   if (maxPages) {
-    console.log(`Found ${pageCount} pages, limiting to ${maxPages}.`);
+    console.log(`Downloading ${maxPages} (${pageCount} total pages found).`);
     pageCount = Math.min(pageCount, maxPages);
   } else {
-    console.log(`Found ${pageCount} pages.`);
+    console.log(`Downloading ${pageCount} pages.`);
   }
 
   /** @type {DownloadedPage[]} */
   const pages = [];
 
   for (let i = 1; i <= pageCount; i++) {
-    console.log(`Downloading page ${i} of ${pageCount}`);
-
     const singlePageResponse = await axios.post(
       'http://ep.mylines.com/BrowseScript.aspx/LoadSinglePage',
       {
@@ -78,6 +91,8 @@ async function loadPages(sessionVars, maxPages) {
         data: page.EncodedFile,
       });
     }
+
+    writeProgress(i, pageCount);
   }
 
   return pages;
@@ -88,18 +103,23 @@ async function loadPages(sessionVars, maxPages) {
  * @param {DownloadedPage[]} pages
  */
 async function generatePdf(outputFile, pages) {
+  console.log('Generating PDF.');
+
   const pdf = new PDFDocument({autoFirstPage: false});
   pdf.pipe(fs.createWriteStream(outputFile));
 
   pages = pages.sort((a, b) => a.number - b.number);
 
-  for (const page of pages) {
-    const buffer = Buffer.from(page.data, 'base64');
+  for (let i = 0; i < pages.length; i++) {
+    const buffer = Buffer.from(pages[i].data, 'base64');
     const image = pdf.openImage(buffer);
     pdf.addPage({size: [image.width, image.height]});
     pdf.image(image, 0, 0);
+
+    writeProgress(i + 1, pages.length);
   }
 
+  console.log(`Saving PDF as '${outputFile}'.`);
   pdf.end();
 }
 
