@@ -1,5 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
+import Nightmare from 'nightmare';
 import PDFDocument from 'pdfkit';
 import prottle from 'prottle';
 
@@ -32,6 +33,7 @@ import prottle from 'prottle';
  * @property {string} data
  */
 
+
 /**
  * @param {number} current
  * @param {number} total
@@ -43,6 +45,37 @@ function writeProgress(current, total) {
       Math.floor(current * 100 / total)
     }%)\n`);
   }
+}
+
+/**
+ * @param {string} emailAddress
+ * @param {string} accessCode
+ */
+async function getSessionVars(emailAddress, accessCode) {
+  console.log(`Retrieving session vars for '${emailAddress}' ` +
+  `with access code '${accessCode}'.`);
+
+  const nightmare = new Nightmare();
+
+  const browseUrl = await nightmare
+    .goto('https://reader.mtishows.com')
+    .type('#accessCode', accessCode)
+    .type('#contactEmail', emailAddress)
+    .click('#Submit')
+    .wait('#ScriptFrame')
+    .wait(1000)
+    .evaluate(() => document.querySelector('#ScriptFrame').src);
+
+  console.log(`Browsing script at '${browseUrl}'.`);
+
+  const sessionVars = await nightmare
+    .goto(browseUrl)
+    .wait('#HdnSessionVars')
+    .evaluate(() => document.querySelector('#HdnSessionVars').value)
+    .end();
+
+  console.log(`Retrieved session vars '${sessionVars}'.`);
+  return sessionVars;
 }
 
 /**
@@ -131,11 +164,15 @@ async function generatePdf(outputFile, pages) {
 }
 
 /**
- * @param {string} sessionVars
+ * @param {string} emailAddress
+ * @param {string} accessCode
  * @param {string} outputFile
  * @param {number} maxPages
  */
-export default async function index(sessionVars, outputFile, maxPages) {
+export default async function index(
+  emailAddress, accessCode, outputFile, maxPages,
+) {
+  const sessionVars = await getSessionVars(emailAddress, accessCode);
   const pages = await loadPages(sessionVars, maxPages);
   await generatePdf(outputFile, pages);
 }
