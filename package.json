@@ -16,6 +16,7 @@
     "@babel/core": "^7.14.8",
     "@babel/node": "^7.14.9",
     "@babel/preset-env": "^7.14.9",
-    "axios": "^0.21.1"
+    "axios": "^0.21.1",
+    "pdfkit": "^0.12.1"
   }
 }
