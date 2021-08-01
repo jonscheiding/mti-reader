@@ -1,6 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
+import prottle from 'prottle';
 
 /**
  * @typedef {object} Page
@@ -73,27 +74,33 @@ async function loadPages(sessionVars, maxPages) {
 
   /** @type {DownloadedPage[]} */
   const pages = [];
+  /** @type {Promise[]} */
+  const pagePromises = [];
 
   for (let i = 1; i <= pageCount; i++) {
-    const singlePageResponse = await axios.post(
-      'http://ep.mylines.com/BrowseScript.aspx/LoadSinglePage',
-      {
-        sessionVars,
-        pageNum: i,
-      });
+    pagePromises.push(async () => {
+      writeProgress(i, pageCount);
 
-    /** @type {SinglePage} */
-    const singlePage = singlePageResponse.data.d;
+      const singlePageResponse = await axios.post(
+        'http://ep.mylines.com/BrowseScript.aspx/LoadSinglePage',
+        {
+          sessionVars,
+          pageNum: i,
+        });
 
-    for (const page of singlePage.Pages) {
-      pages.push({
-        number: page.PageNum,
-        data: page.EncodedFile,
-      });
-    }
+      /** @type {SinglePage} */
+      const singlePage = singlePageResponse.data.d;
 
-    writeProgress(i, pageCount);
+      for (const page of singlePage.Pages) {
+        pages.push({
+          number: page.PageNum,
+          data: page.EncodedFile,
+        });
+      }
+    });
   }
+
+  await prottle(20, pagePromises);
 
   return pages;
 }
